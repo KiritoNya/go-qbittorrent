@@ -31,6 +31,7 @@ const endpointInfo = endpoint + endpointTorrents + "/info"
 const endpointProperties = endpoint + endpointTorrents + "/properties"
 const endpointPause = endpoint + endpointTorrents + "/pause"
 const endpointResume = endpoint + endpointTorrents + "/resume"
+const endpointDelete = endpoint + endpointTorrents + "/delete"
 
 //ErrBadPriority means the priority is not allowd by qbittorrent
 var ErrBadPriority = errors.New("priority not available")
@@ -441,13 +442,15 @@ func (client *Client) ResumeMultiple(infoHashList []string) (*http.Response, err
 //DeleteTemp deletes the temporary files for a list of torrents matching infoHashes
 func (client *Client) DeleteTemp(infoHashList []string) (*http.Response, error) {
 	params := client.processInfoHashList(infoHashList)
-	return client.post("command/delete", params)
+	params["deleteFiles"] = "false"
+	return client.get(endpointDelete, params)
 }
 
 //DeletePermanently deletes all files for a list of torrents matching infoHashes
 func (client *Client) DeletePermanently(infoHashList []string) (*http.Response, error) {
 	params := client.processInfoHashList(infoHashList)
-	return client.post("command/deletePerm", params)
+	params["deleteFiles"] = "true"
+	return client.get(endpointDelete, params)
 }
 
 //Recheck rechecks a list of torrents matching infoHashes
