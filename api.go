@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/ioutil"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
@@ -19,6 +21,16 @@ import (
 
 	"golang.org/x/net/publicsuffix"
 )
+
+const cookiesUrl = "http://localhost:8080"
+const endpoint = "api/v2"
+const endpointTorrents = "/torrents"
+const endpointAuth = "/auth"
+const endpointLogin = endpoint + endpointAuth + "/login"
+const endpointInfo = endpoint + endpointTorrents + "/info"
+const endpointProperties = endpoint + endpointTorrents + "/properties"
+const endpointPause = endpoint + endpointTorrents + "/pause"
+const endpointResume = endpoint + endpointTorrents + "/resume"
 
 //ErrBadPriority means the priority is not allowd by qbittorrent
 var ErrBadPriority = errors.New("priority not available")
@@ -207,7 +219,9 @@ func (client *Client) Login(username string, password string) (loggedIn bool, er
 	credentials["username"] = username
 	credentials["password"] = password
 
-	resp, err := client.post("api/v2/auth/login", credentials)
+	resp, err := client.get(endpointLogin, credentials)
+	contain, _ := ioutil.ReadAll(resp.Body)
+	log.Println(string(contain))
 	if err != nil {
 		return false, err
 	} else if resp.Status != "200 OK" { // check for correct status code
@@ -219,7 +233,7 @@ func (client *Client) Login(username string, password string) (loggedIn bool, er
 
 	// add the cookie to cookie jar to authenticate later requests
 	if cookies := resp.Cookies(); len(cookies) > 0 {
-		cookieURL, _ := url.Parse("http://localhost:8080")
+		cookieURL, _ := url.Parse(cookiesUrl)
 		client.Jar.SetCookies(cookieURL, cookies)
 	}
 
@@ -262,7 +276,7 @@ func (client *Client) Shutdown() (shuttingDown bool, err error) {
 //Torrents returns a list of all torrents in qbittorrent matching your filter
 func (client *Client) Torrents(filters map[string]string) (torrentList []BasicTorrent, err error) {
 	var t []BasicTorrent
-	resp, err := client.get("query/torrents", filters)
+	resp, err := client.get(endpointInfo, filters)
 	if err != nil {
 		return t, err
 	}
@@ -273,7 +287,13 @@ func (client *Client) Torrents(filters map[string]string) (torrentList []BasicTo
 //Torrent returns a specific torrent matching the infoHash
 func (client *Client) Torrent(infoHash string) (Torrent, error) {
 	var t Torrent
-	resp, err := client.get("query/propertiesGeneral/"+strings.ToLower(infoHash), nil)
+
+	//Make map
+	hash := make(map[string]string)
+	hash["hash"] = infoHash
+
+	//log.Println(endpointProperties + "?hash=" + strings.ToLower(infoHash))
+	resp, err := client.get(endpointProperties, hash)
 	if err != nil {
 		return t, err
 	}
@@ -368,9 +388,9 @@ func (Client) processInfoHashList(infoHashList []string) (hashMap map[string]str
 //Pause pauses a specific torrent matching infoHash
 func (client *Client) Pause(infoHash string) (*http.Response, error) {
 	params := make(map[string]string)
-	params["hash"] = strings.ToLower(infoHash)
+	params["hashes"] = strings.ToLower(infoHash)
 
-	return client.post("command/pause", params)
+	return client.get(endpointPause, params)
 }
 
 //PauseAll pauses all torrents
@@ -403,8 +423,8 @@ func (client *Client) SetCategory(infoHashList []string, category string) (*http
 //Resume resumes a specific torrent matching infoHash
 func (client *Client) Resume(infoHash string) (*http.Response, error) {
 	params := make(map[string]string)
-	params["hash"] = strings.ToLower(infoHash)
-	return client.post("command/resume", params)
+	params["hashes"] = strings.ToLower(infoHash)
+	return client.get(endpointResume, params)
 }
 
 //ResumeAll resumes all torrents matching infoHashes
