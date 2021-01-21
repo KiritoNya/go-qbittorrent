@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"io/ioutil"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
@@ -221,8 +219,6 @@ func (client *Client) Login(username string, password string) (loggedIn bool, er
 	credentials["password"] = password
 
 	resp, err := client.get(endpointLogin, credentials)
-	contain, _ := ioutil.ReadAll(resp.Body)
-	log.Println(string(contain))
 	if err != nil {
 		return false, err
 	} else if resp.Status != "200 OK" { // check for correct status code
